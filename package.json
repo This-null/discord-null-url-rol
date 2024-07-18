@@ -10,6 +10,7 @@
   "author": "null.rb",
   "license": "ISC",
   "dependencies": {
-    "discord.js": "^14.13.0"
+    "discord.js": "^14.15.3",
+    "lodash.snakecase": "^4.1.1"
   }
 }

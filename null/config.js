@@ -1,17 +1,14 @@
 module.exports = {
 
- "TOKEN": '', // Bot Tokeni.
- "GUILD_ID": '',  // Sunucu (guild) ID'si.
- "ROLE_ID": '',    // Hedef rol ID'si.
- "EXPECTED_STATUS": 'themis', // Kişilerin durumu.
- "CHANNEL_ID": '', // Resim kanalı ID'si.
- "EMOJI": '', // Resimlerin altına eklenecek emoji ID si.
+ "TOKEN": ' ', 
+ "GUILD_ID": ' ',  
+ "ROLE_ID": ' ',   
+ "EXPECTED_STATUS": 'devcode', 
+ "CHANNEL_ID": ' ', 
+ "EMOJI": ' ', 
  "STATUS": [
-    "null 💛 Themis",
-    "null 💚 Themis",
-    "null 💜 Themis",
-    "null 💓 Themis",
-    "null 💙 Themis"
-] // Botun oynuyor kısmı.
+    "null 👋",
+
+]
  
   };
