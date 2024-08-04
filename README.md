@@ -1,7 +1,12 @@
 # discord-null-url-rol
-- Selam beyler piyasada böyle basit bir kodun veya botun olmaması beni gerçekten üzdü o yüzden gecenin 1 de kalktım yazdım keyfi olarak.
-- Discord gelin olm böyle şeyler için.
-- https://discord.gg/themis
+
+- Bot keyfi olarak yazılmıştır.
+- boş insanlardan ücret karşılığında almayınız.
+
+- Ben botcu değilim sadece canım ne isterse onu yapıyorum beni darlamayın iyi günler ve iyi geceler dilerim 👋
+
+
+- https://discord.gg/pastanem
 
 
 
