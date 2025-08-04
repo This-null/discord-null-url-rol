@@ -1,22 +1,20 @@
-# discord-null-url-rol
-
-- Güncelleme 2.0
+# **Güncelleme 2.0**
 
 - Log sistemi eklendi.
 - Check sistemi eklendi.
 - Mesaj engelleme kısmında düzenlemeler yapıldı.
 
-- Bilgilendirme !
+# Bilgilendirme !
 
-- Check sistemi nedir?
+## Check sistemi nedir?
 
 - Check sistemi 30 saniyede bir kullanıcıları kontrol eden sistemdir, kısaca kimin durumunda belirli durum yapızyor yazmıyor ona göre kontrol eder.
 
-- Log sistemi nedir?
+## Log sistemi nedir?
 
 - Artık kimin durumu alıp almadığını gösteren sistemdir.
 
-- Mesaj engelleme sistemindeki güncelleme?
+## Mesaj engelleme sistemindeki güncelleme?
 
 - Önceden yönetici dahi olsanız sizde yazı yazamıyordunuz onun için ayarlama yaptım normal yazı yazdığınızda yazınıza emoji eklenmiyor artık, resim + yazı yazarsanız emojiyi bot ekliyor.
 
