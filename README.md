@@ -1,8 +1,10 @@
-# **Güncelleme 2.0**
+# **Güncelleme 3.0**
 
 - Log sistemi eklendi.
 - Check sistemi eklendi.
 - Mesaj engelleme kısmında düzenlemeler yapıldı.
+- Guild Tag Özelliği eklendi.
+- Bütün tema şef temasına çekildi. :)
 
 # Bilgilendirme !
 
@@ -23,6 +25,11 @@
 
 <img width="385" height="372" alt="Discord_upmpg7hsPt" src="https://github.com/user-attachments/assets/e3a8611b-498b-45ff-bce2-058def40daf5" />
 
+## Guild Tag sistemi?
+
+- Bu sistem sayesinde sunucu etiketini alan kişilere istediğiniz rolü verebilirsiniz.
+
+- Herhangi bir resim yok.
 
 # Aşşağıdaki linklerden sunucularıma katılabilirsiniz.
 
