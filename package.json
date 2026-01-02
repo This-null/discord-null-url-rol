@@ -1,7 +1,7 @@
 {
   "name": "null-presence",
-  "version": "1.0.0",
-  "description": "Basit durum botu.",
+  "version": "1.2.0",
+  "description": "Basit durum ve guild tag botu.",
   "main": "null.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -10,7 +10,7 @@
   "author": "null.rb",
   "license": "ISC",
   "dependencies": {
-    "discord.js": "^14.15.3",
+    "discord.js": "^14.25.1",
     "lodash.snakecase": "^4.1.1"
   }
 }

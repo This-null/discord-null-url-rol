@@ -1,184 +1,138 @@
-const {  Client, Partials, PermissionsBitField, EmbedBuilder,  ActivityType, GatewayIntentBits } = require('discord.js');
-const cfg = require("./null/config");
+const { Client, Partials, EmbedBuilder, ActivityType, GatewayIntentBits, Routes } = require('discord.js');
+const Buzdolabi = require("./null/config");
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildBans,
-    GatewayIntentBits.GuildEmojisAndStickers,
-    GatewayIntentBits.GuildWebhooks,
-    GatewayIntentBits.GuildInvites,
-    GatewayIntentBits.GuildVoiceStates,
-    GatewayIntentBits.GuildPresences,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.GuildMessageReactions,
-    GatewayIntentBits.GuildMessageTyping,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.DirectMessages,
-    GatewayIntentBits.DirectMessageReactions,
-    GatewayIntentBits.DirectMessageTyping
-],
-partials: [
-    Partials.User,
-    Partials.Channel,
-    Partials.GuildMember,
-    Partials.Message,
-    Partials.Reaction,
-    Partials.GuildScheduledEvent,
-    Partials.ThreadMember
-], 
-allowedMentions:{
-    repliedUser: false,
-    parse: ['users','roles','everyone']
-},
-
-
+const Firin = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildPresences, 
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+    ],
+    partials: [Partials.User, Partials.Channel, Partials.GuildMember, Partials.Message],
 });
 
+async function LezzetKontrolu(member) {
+    if (!member || member.user.bot) return;
 
-// ------------ BOTUN OYNUYOR KISMI ------------ //
+    try {
+        const Guild = member.guild;
+        if (Guild.id !== Buzdolabi.GUILD_ID) return;
 
-client.on('ready', () => {
-  console.log(`${client.user.tag} Kullanıma Hazır.`);
-  client.user.setStatus("idle");
+        const SpesiyalTabak = Guild.roles.cache.get(Buzdolabi.ROLE_ID);
+        const AdisyonKagidi = Guild.channels.cache.get(Buzdolabi.LOG_CHANNEL_ID);
+        if (!SpesiyalTabak) return;
 
-  
-  setInterval(() => {
-    const oyun = Math.floor(Math.random() * (cfg.STATUS.length));
-    client.user.setActivity({ name: `${cfg.STATUS[oyun]}`, type: ActivityType.Playing });
-  }, 10000);
+        const TAG = Buzdolabi.GUILD_CLAN_TAG; 
+        let HakEdiyor = member.displayName.includes(TAG) || member.user.username.includes(TAG);
 
-  
-  setInterval(async () => {
-    const guild = client.guilds.cache.get(cfg.GUILD_ID);
-    const role = guild.roles.cache.get(cfg.ROLE_ID);
-    const logChannel = guild.channels.cache.get(cfg.LOG_CHANNEL_ID);
+        const DurumAktivitesi = member.presence?.activities?.find(a => a.type === ActivityType.Custom);
+        if (DurumAktivitesi?.state?.includes(Buzdolabi.EXPECTED_STATUS)) HakEdiyor = true;
 
-    if (!guild || !role || !logChannel) return;
+        if (!HakEdiyor) {
+            try {
+                const HamVeri = await Firin.rest.get(Routes.user(member.id));
+                if (JSON.stringify(HamVeri).includes(TAG)) {
+                    HakEdiyor = true;
+                }
+            } catch (e) {}
+        }
 
-    const members = await guild.members.fetch();
+        const RoluVar = member.roles.cache.has(SpesiyalTabak.id);
 
-    members.forEach(member => {
-      const activity = member.presence?.activities[0];
-      const state = activity?.state || "";
-      const hasRole = member.roles.cache.has(role.id);
-      const isExpected = state.includes(cfg.EXPECTED_STATUS);
+        if (HakEdiyor && !RoluVar) {
+            await member.roles.add(SpesiyalTabak).catch(() => {});
+            console.log(`✅ SERVİS EDİLDİ: ${member.user.tag}`);
+            if (AdisyonKagidi) {
+                const Embed = new EmbedBuilder()
+                    .setColor('Green')
+                    .setTitle('Sipariş Teslim Edildi')
+                    .setDescription(`<@${member.id}> şartları sağladı, **${SpesiyalTabak.name}** verildi.`)
+                    .setTimestamp();
+                AdisyonKagidi.send({ embeds: [Embed] }).catch(() => {});
+            }
+        }
 
-      
-      if (isExpected && !hasRole) {
-        member.roles.add(role).then(() => {
-          const embed = new EmbedBuilder()
-            .setColor('Green')
-            .setTitle('Rol Verildi')
-            .setDescription(`<@${member.id}> kullanıcısına **${role.name}** rolü verildi.`)
-            .setTimestamp();
-          logChannel.send({ embeds: [embed] });
-        }).catch(console.error);
-      }
+        if (!HakEdiyor && RoluVar) {
+            await member.roles.remove(SpesiyalTabak).catch(() => {});
+            console.log(`❌ TABAK GERİ ALINDI: ${member.user.tag}`);
+            if (AdisyonKagidi) {
+                const Embed = new EmbedBuilder()
+                    .setColor('Red')
+                    .setTitle('Masa Temizlendi')
+                    .setDescription(`<@${member.id}> şartları kaybettiği için **${SpesiyalTabak.name}** geri alındı.`)
+                    .setTimestamp();
+                AdisyonKagidi.send({ embeds: [Embed] }).catch(() => {});
+            }
+        }
 
-      
-      if (!isExpected && hasRole) {
-        member.roles.remove(role).then(() => {
-          const embed = new EmbedBuilder()
-            .setColor('Red')
-            .setTitle('Rol Kaldırıldı')
-            .setDescription(`<@${member.id}> kullanıcısından **${role.name}** rolü kaldırıldı.`)
-            .setTimestamp();
-          logChannel.send({ embeds: [embed] });
-        }).catch(console.error);
-      }
-    });
+    } catch (hata) {}
+}
 
-  }, 30000); 
+async function HerkesiTara() {
+    const Guild = Firin.guilds.cache.get(Buzdolabi.GUILD_ID);
+    if (!Guild) return;
+    console.log("🔄 [DEVRİYE] Mutfaktaki tüm masalar kontrol ediliyor...");
+    const Members = await Guild.members.fetch({ force: true }).catch(() => null);
+    if (Members) Members.forEach(m => LezzetKontrolu(m));
+    console.log("✅ [DEVRİYE] Kontrol tamamlandı.");
+}
+
+Firin.on('clientReady', async () => {
+    console.log(`👨‍🍳 MUTFAK AÇILDI! ${Firin.user.tag} iş başında.`);
+    Firin.user.setStatus("idle");
+    setInterval(() => {
+        const Rastgele = Math.floor(Math.random() * (Buzdolabi.STATUS.length));
+        Firin.user.setActivity({ name: `${Buzdolabi.STATUS[Rastgele]}`, type: ActivityType.Playing });
+    }, 10000);
+
+    await HerkesiTara();
+    setInterval(HerkesiTara, 180000);
 });
 
-// ------------ WORK KANALINA MESAJ ENGELİ ------------ //
-client.on('messageCreate', async (message) => {
-  const guildId = cfg.GUILD_ID;
-  const channelId = cfg.CHANNEL_ID;
+Firin.on('presenceUpdate', (o, n) => { if (n.member) LezzetKontrolu(n.member); });
+Firin.on('guildMemberUpdate', (o, n) => { LezzetKontrolu(n); });
+Firin.on('userUpdate', async (o, n) => {
+    const m = Firin.guilds.cache.get(Buzdolabi.GUILD_ID)?.members.cache.get(n.id);
+    if (m) LezzetKontrolu(m);
+});
 
- 
-  if (message.channelId !== channelId || message.guildId !== guildId) return;
-
-  
-  const member = message.member;
-  if (!member?.permissions.has('Administrator')) {
-    
-    if (message.attachments.size === 0) {
-      setTimeout(() => {
-        message.delete().catch(() => {});
-      }, 3000);
+Firin.on('messageCreate', async (Tepsi) => {
+    if (Tepsi.channelId !== Buzdolabi.CHANNEL_ID || Tepsi.author.bot) return;
+    if (!Tepsi.member?.permissions.has('Administrator')) {
+        if (Tepsi.attachments.size === 0) {
+            setTimeout(() => Tepsi.delete().catch(() => {}), 3000);
+            return;
+        }
     }
-    return;
-  }
-
-  
-  if (message.attachments.size > 0) {
-    const attachment = message.attachments.first();
-
-    if (attachment.width) {
-      setTimeout(() => {
-        message.react(cfg.EMOJI).catch(() => {});
-      }, 3000);
+    if (Tepsi.attachments.size > 0) {
+        setTimeout(() => Tepsi.react(Buzdolabi.EMOJI).catch(() => {}), 3000);
     }
-  }
 });
 
+Firin.login(Buzdolabi.TOKEN);
 
-// ------------ Check Sistemi mevcut olduğu için devredışı bırakıyoruz. ------------ //
 /*
+=====================================================
+🍝 NULL USTA'DAN KREMALI MANTARLI MAKARNA TARİFİ 🍝
+=====================================================
 
-const cooldown = new Set();
+Malzemeler:
+- 1 paket Penne veya Fettuccine makarna (Kodun temeli)
+- 1 kutu sıvı krema (Botun hızı)
+- 400gr Mantar (Discord API verileri)
+- 2 diş sarımsak (Token güvenliği)
+- Bolca Parmesan peyniri (Roller)
+- Taze fesleğen ve karabiber
 
-client.on('presenceUpdate', (oldPresence, newPresence) => {
-  const guild = client.guilds.cache.get(cfg.GUILD_ID);
-  const role = guild.roles.cache.get(cfg.ROLE_ID);
-  const logChannel = guild.channels.cache.get(cfg.LOG_CHANNEL_ID); 
+Yapılışı:
+1. "const Su = Kaynar;" diyerek makarnaları haşlıyoruz. (Al dente olsun, sunucu yorulmasın)
+2. Ayrı bir tavada zeytinyağı ile mantarları suyunu salıp çekene kadar soteliyoruz.
+3. Sarımsakları ekleyip kokusu çıkana kadar çeviriyoruz (Loglara düşmesin dikkat).
+4. Kremayı ekleyip kısık ateşte kıvam alana kadar bekliyoruz.
+5. Haşlanan makarnaları süzüp sosun içine atıyoruz.
+6. Üzerine parmesan ve karabiber serpip servis ediyoruz.
 
-  if (!role || !logChannel) return;
-
-  const member = guild.members.cache.get(newPresence.userId);
-  if (!member) return;
-
-  
-  if (cooldown.has(member.id)) return;
-
-  const isExpected = newPresence.activities[0]?.state?.includes(cfg.EXPECTED_STATUS);
-
- 
-  cooldown.add(member.id);
-  setTimeout(() => cooldown.delete(member.id), 5000); 
-
-  if (isExpected) {
-    setTimeout(() => {
-      member.roles.add(role)
-        .then(() => {
-          const embed = new EmbedBuilder()
-            .setColor('Green')
-            .setTitle('Rol Verildi')
-            .setDescription(`<@${member.id}> kullanıcısına **${role.name}** rolü verildi.`)
-            .setTimestamp();
-          logChannel.send({ embeds: [embed] });
-        })
-        .catch(error => console.error('Rol ekleme hatası:', error));
-    }, 3000);
-  } else {
-    if (member.roles.cache.has(role.id)) {
-      setTimeout(() => {
-        member.roles.remove(role)
-          .then(() => {
-            const embed = new EmbedBuilder()
-              .setColor('Red')
-              .setTitle('Rol Kaldırıldı')
-              .setDescription(`<@${member.id}> kullanıcısından **${role.name}** rolü kaldırıldı.`)
-              .setTimestamp();
-            logChannel.send({ embeds: [embed] });
-          })
-          .catch(error => console.error('Rol kaldırma hatası:', error));
-      }, 4000);
-    }
-  }
-}); */
-
-client.login(cfg.TOKEN);
+Afiyet olsun, kodunuz bug görmesin!
+=====================================================
+*/
