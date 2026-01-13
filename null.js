@@ -1,5 +1,15 @@
-const { Client, Partials, EmbedBuilder, ActivityType, GatewayIntentBits, Routes } = require('discord.js');
+const { Client, Partials, GatewayIntentBits, ActivityType } = require('discord.js');
+const mongoose = require('mongoose');
 const Buzdolabi = require("./null/config");
+
+const SemadakiMusteri = new mongoose.Schema({
+    _id: String,
+    Tarih: { type: Date, default: Date.now }
+});
+
+const Rezervasyonlar = mongoose.model('Mudavimler', SemadakiMusteri);
+const MudavimCache = new Set();
+const IslemdekiMusteriler = new Set();
 
 const Firin = new Client({
     intents: [
@@ -12,127 +22,100 @@ const Firin = new Client({
     partials: [Partials.User, Partials.Channel, Partials.GuildMember, Partials.Message],
 });
 
-async function LezzetKontrolu(member) {
-    if (!member || member.user.bot) return;
+Firin.on('raw', async (packet) => {
+    if (packet.t !== 'GUILD_MEMBER_UPDATE') return;
+    const data = packet.d;
+    if (data.guild_id !== Buzdolabi.GUILD_ID) return;
+
+    const UserID = data.user.id;
+    const AnaSunucuID = data.user.primary_guild?.identity_guild_id;
+    const RozetVar = AnaSunucuID === Buzdolabi.GUILD_ID;
 
     try {
-        const Guild = member.guild;
-        if (Guild.id !== Buzdolabi.GUILD_ID) return;
+        if (RozetVar) {
+            await Rezervasyonlar.updateOne({ _id: UserID }, { _id: UserID }, { upsert: true });
+            MudavimCache.add(UserID);
+        } else {
+            await Rezervasyonlar.deleteOne({ _id: UserID });
+            MudavimCache.delete(UserID);
+        }
+    } catch (e) {}
 
-        const SpesiyalTabak = Guild.roles.cache.get(Buzdolabi.ROLE_ID);
-        const AdisyonKagidi = Guild.channels.cache.get(Buzdolabi.LOG_CHANNEL_ID);
-        if (!SpesiyalTabak) return;
+    const Guild = Firin.guilds.cache.get(Buzdolabi.GUILD_ID);
+    if (Guild) {
+        const Member = Guild.members.cache.get(UserID);
+        if (Member) LezzetKontrolu(Member);
+    }
+});
 
-        const TAG = Buzdolabi.GUILD_CLAN_TAG; 
-        let HakEdiyor = member.displayName.includes(TAG) || member.user.username.includes(TAG);
+async function LezzetKontrolu(Musteri) {
+    if (!Musteri || Musteri.user.bot) return;
+    if (IslemdekiMusteriler.has(Musteri.id)) return;
 
-        const DurumAktivitesi = member.presence?.activities?.find(a => a.type === ActivityType.Custom);
-        if (DurumAktivitesi?.state?.includes(Buzdolabi.EXPECTED_STATUS)) HakEdiyor = true;
+    try {
+        const SpesiyalTabak = Buzdolabi.ROLE_ID;
+        const AdisyonKagidi = Musteri.guild.channels.cache.get(Buzdolabi.LOG_CHANNEL_ID);
+        
+        const MudavimKart = MudavimCache.has(Musteri.id);
 
-        if (!HakEdiyor) {
-            try {
-                const HamVeri = await Firin.rest.get(Routes.user(member.id));
-                if (JSON.stringify(HamVeri).includes(TAG)) {
-                    HakEdiyor = true;
-                }
-            } catch (e) {}
+        let SosKivami = false;
+        const Durum = Musteri.presence?.activities?.find(a => a.type === ActivityType.Custom);
+        if (Durum?.state?.includes(Buzdolabi.EXPECTED_STATUS)) {
+            SosKivami = true;
         }
 
-        const RoluVar = member.roles.cache.has(SpesiyalTabak.id);
+        const HakEdiyor = MudavimKart || SosKivami;
+        const TabagiVar = Musteri.roles.cache.has(SpesiyalTabak);
 
-        if (HakEdiyor && !RoluVar) {
-            await member.roles.add(SpesiyalTabak).catch(() => {});
-            console.log(`✅ SERVİS EDİLDİ: ${member.user.tag}`);
-            if (AdisyonKagidi) {
-                const Embed = new EmbedBuilder()
-                    .setColor('Green')
-                    .setTitle('Sipariş Teslim Edildi')
-                    .setDescription(`<@${member.id}> şartları sağladı, **${SpesiyalTabak.name}** verildi.`)
-                    .setTimestamp();
-                AdisyonKagidi.send({ embeds: [Embed] }).catch(() => {});
+        if ((HakEdiyor && !TabagiVar) || (!HakEdiyor && TabagiVar)) {
+            
+            IslemdekiMusteriler.add(Musteri.id);
+            setTimeout(() => IslemdekiMusteriler.delete(Musteri.id), 5000);
+
+            if (HakEdiyor && !TabagiVar) {
+                await Musteri.roles.add(SpesiyalTabak).catch(() => {});
+                const Mesaj = `✅ **${Musteri.user.tag}** siparişi hazırlandı ve servis edildi.`;
+                console.log(`[+] Servis: ${Musteri.user.tag}`);
+                if (AdisyonKagidi) AdisyonKagidi.send(Mesaj).catch(() => {});
+            }
+
+            if (!HakEdiyor && TabagiVar) {
+                await Musteri.roles.remove(SpesiyalTabak).catch(() => {});
+                const Mesaj = `❌ **${Musteri.user.tag}** masadan kalktığı için tabağı alındı.`;
+                console.log(`[-] Temizlik: ${Musteri.user.tag}`);
+                if (AdisyonKagidi) AdisyonKagidi.send(Mesaj).catch(() => {});
             }
         }
-
-        if (!HakEdiyor && RoluVar) {
-            await member.roles.remove(SpesiyalTabak).catch(() => {});
-            console.log(`❌ TABAK GERİ ALINDI: ${member.user.tag}`);
-            if (AdisyonKagidi) {
-                const Embed = new EmbedBuilder()
-                    .setColor('Red')
-                    .setTitle('Masa Temizlendi')
-                    .setDescription(`<@${member.id}> şartları kaybettiği için **${SpesiyalTabak.name}** geri alındı.`)
-                    .setTimestamp();
-                AdisyonKagidi.send({ embeds: [Embed] }).catch(() => {});
-            }
-        }
-
-    } catch (hata) {}
+    } catch (hata) {
+        IslemdekiMusteriler.delete(Musteri.id);
+    }
 }
 
-async function HerkesiTara() {
+async function MutfakDevriyesi() {
     const Guild = Firin.guilds.cache.get(Buzdolabi.GUILD_ID);
     if (!Guild) return;
-    console.log("🔄 [DEVRİYE] Mutfaktaki tüm masalar kontrol ediliyor...");
-    const Members = await Guild.members.fetch({ force: true }).catch(() => null);
-    if (Members) Members.forEach(m => LezzetKontrolu(m));
-    console.log("✅ [DEVRİYE] Kontrol tamamlandı.");
+    try {
+        const Masalar = await Guild.members.fetch({ force: true });
+        Masalar.forEach(m => LezzetKontrolu(m));
+    } catch (e) {}
 }
 
 Firin.on('clientReady', async () => {
-    console.log(`👨‍🍳 MUTFAK AÇILDI! ${Firin.user.tag} iş başında.`);
-    Firin.user.setStatus("idle");
-    setInterval(() => {
-        const Rastgele = Math.floor(Math.random() * (Buzdolabi.STATUS.length));
-        Firin.user.setActivity({ name: `${Buzdolabi.STATUS[Rastgele]}`, type: ActivityType.Playing });
-    }, 10000);
+    console.log(`👨‍🍳 USTA'NIN MUTFAĞI AÇILDI: ${Firin.user.tag}`);
+    Firin.user.setStatus("dnd");
+    await mongoose.connect(Buzdolabi.MONGO_URL || '')
+    .then(async () => {
+        console.log("📒 Rezervasyon Defteri (MongoDB) Açıldı!");
+        const Kayitlar = await Rezervasyonlar.find({});
+        Kayitlar.forEach(k => MudavimCache.add(k._id));
+        console.log(`🧠 Hafıza Tazelendi: ${Kayitlar.length} müdavim yüklendi.`);
+    }).catch(e => console.log("🚨 Veritabanı Hatası:", e.message));
 
-    await HerkesiTara();
-    setInterval(HerkesiTara, 180000);
+    await MutfakDevriyesi();
+    setInterval(MutfakDevriyesi, 60 * 1000); 
 });
 
 Firin.on('presenceUpdate', (o, n) => { if (n.member) LezzetKontrolu(n.member); });
 Firin.on('guildMemberUpdate', (o, n) => { LezzetKontrolu(n); });
-Firin.on('userUpdate', async (o, n) => {
-    const m = Firin.guilds.cache.get(Buzdolabi.GUILD_ID)?.members.cache.get(n.id);
-    if (m) LezzetKontrolu(m);
-});
-
-Firin.on('messageCreate', async (Tepsi) => {
-    if (Tepsi.channelId !== Buzdolabi.CHANNEL_ID || Tepsi.author.bot) return;
-    if (!Tepsi.member?.permissions.has('Administrator')) {
-        if (Tepsi.attachments.size === 0) {
-            setTimeout(() => Tepsi.delete().catch(() => {}), 3000);
-            return;
-        }
-    }
-    if (Tepsi.attachments.size > 0) {
-        setTimeout(() => Tepsi.react(Buzdolabi.EMOJI).catch(() => {}), 3000);
-    }
-});
 
 Firin.login(Buzdolabi.TOKEN);
-
-/*
-=====================================================
-🍝 NULL USTA'DAN KREMALI MANTARLI MAKARNA TARİFİ 🍝
-=====================================================
-
-Malzemeler:
-- 1 paket Penne veya Fettuccine makarna (Kodun temeli)
-- 1 kutu sıvı krema (Botun hızı)
-- 400gr Mantar (Discord API verileri)
-- 2 diş sarımsak (Token güvenliği)
-- Bolca Parmesan peyniri (Roller)
-- Taze fesleğen ve karabiber
-
-Yapılışı:
-1. "const Su = Kaynar;" diyerek makarnaları haşlıyoruz. (Al dente olsun, sunucu yorulmasın)
-2. Ayrı bir tavada zeytinyağı ile mantarları suyunu salıp çekene kadar soteliyoruz.
-3. Sarımsakları ekleyip kokusu çıkana kadar çeviriyoruz (Loglara düşmesin dikkat).
-4. Kremayı ekleyip kısık ateşte kıvam alana kadar bekliyoruz.
-5. Haşlanan makarnaları süzüp sosun içine atıyoruz.
-6. Üzerine parmesan ve karabiber serpip servis ediyoruz.
-
-Afiyet olsun, kodunuz bug görmesin!
-=====================================================
-*/
